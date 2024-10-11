@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Market Hours</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        /* Dark theme styling */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: #2e2e2e;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        select, button {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px;
+            background-color: #3b3b3b;
+            color: white;
+            border: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #444;
+            text-align: center;
+        }
+        th {
+            background-color: #3b3b3b;
+        }
+        .timezone-toggle {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #map {
+            height: 400px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Global Market Hours</h1>
+
+    <div class="timezone-toggle">
+        <label for="timezone">Select Your Timezone:</label>
+        <select id="timezone" onchange="updateMarketHours()">
+            <!-- Time zone options will be dynamically populated -->
+        </select>
+    </div>
+
+    <div id="map"></div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Market</th>
+                <th>Open (Local Time)</th>
+                <th>Close (Local Time)</th>
+            </tr>
+        </thead>
+        <tbody id="market-hours">
+            <!-- Market hours will be populated dynamically -->
+        </tbody>
+    </table>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+    const marketHours = {
+        forex: {
+            sydney: { open: 22, close: 7 },
+            tokyo: { open: 0, close: 9 },
+            london: { open: 8, close: 17 },
+            newYork: { open: 13, close: 22 }
+        },
+        stock: {
+            nyse: { open: 14.5, close: 21 },
+            comex: { open: 13.33, close: 18.5 }
+        }
+    };
+
+    // Get the current time zone and detect DST
+    const timeZones = Intl.supportedValuesOf('timeZone');
+    const timezoneSelect = document.getElementById('timezone');
+
+    timeZones.forEach(zone => {
+        const option = document.createElement('option');
+        option.value = zone;
+        option.text = zone.replace('_', ' ');
+        timezoneSelect.add(option);
+    });
+
+    function isDST(timeZone) {
+        const now = new Date();
+        const jan = new Date(now.getFullYear(), 0, 1);
+        const jul = new Date(now.getFullYear(), 6, 1);
+        return jan.getTimezoneOffset() !== jul.getTimezoneOffset();
+    }
+
+    function updateMarketHours() {
+        const selectedZone = timezoneSelect.value;
+        const inDST = isDST(selectedZone);
+
+        const rows = document.getElementById('market-hours');
+        rows.innerHTML = ''; // Clear table rows
+
+        for (const [market, times] of Object.entries(marketHours)) {
+            for (const [session, hours] of Object.entries(times)) {
+                const openLocal = convertTimeZone(hours.open, selectedZone, inDST);
+                const closeLocal = convertTimeZone(hours.close, selectedZone, inDST);
+
+                const row = `<tr>
+                                <td>${session}</td>
+                                <td>${openLocal}</td>
+                                <td>${closeLocal}</td>
+                             </tr>`;
+                rows.innerHTML += row;
+            }
+        }
+    }
+
+    function convertTimeZone(hour, timeZone, inDST) {
+        const now = new Date();
+        const utcHour = new Date(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour).getUTCHours();
+        const localTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), utcHour));
+        localTime.toLocaleString('en-US', { timeZone });
+
+        const offset = inDST ? 1 : 0;
+        return localTime.getHours() + offset;
+    }
+
+    // Initialize Leaflet Map
+    const map = L.map('map').setView([51.505, -0.09], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    map.on('click', function (e) {
+        alert("Coordinates: " + e.latlng); // Can use this to map coordinates to time zones
+    });
+
+    // Initialize with default timezone
+    updateMarketHours();
+</script>
+
+</body>
+</html>
